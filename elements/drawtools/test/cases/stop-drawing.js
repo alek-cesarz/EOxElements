@@ -22,16 +22,18 @@ const stopDrawingTest = () => {
     expect($el[0].currentlyDrawing).to.be.true;
   });
 
+  // Record feature count before stopping
+  let featureCountBefore;
   cy.get(drawTools).then(($el) => {
+    featureCountBefore = $el[0].drawLayer.getSource().getFeatures().length;
     $el[0].stopDrawing();
   });
 
-  // Verify drawing stopped but features preserved
+  // Verify drawing stopped AND features preserved
   cy.get(drawTools).should(($el) => {
     expect($el[0].currentlyDrawing).to.be.false;
-    // drawnFeatures should still exist (not cleared like discardDrawing)
-    // Note: the mock doesn't add features on draw, so we just verify state
-    expect($el[0].draw.setActive).to.exist;
+    const featuresAfter = $el[0].drawLayer.getSource().getFeatures();
+    expect(featuresAfter.length).to.equal(featureCountBefore);
   });
 };
 
