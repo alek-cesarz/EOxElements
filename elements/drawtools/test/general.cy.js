@@ -10,6 +10,9 @@ import {
   setLayerId,
   featureListTest,
   measureTest,
+  stopDrawingTest,
+  suppressEventsTest,
+  removeFeatureByIndexTest,
 } from "./cases";
 
 import { TEST_SELECTORS } from "../src/enums";
@@ -52,4 +55,14 @@ describe("Drawtools", () => {
 
   // Test case to check area and line measurement
   it("checks area and line measurement", () => measureTest());
+
+  // Test case to verify stopDrawing deactivates draw without discarding features
+  it("stops drawing without discarding features", () => stopDrawingTest());
+
+  // Test case to verify suppressEvents prevents drawupdate event emission
+  it("suppresses drawupdate events when suppressEvents is set", () =>
+    suppressEventsTest());
+
+  // Test case to verify removeFeatureByIndex removes the correct feature
+  it("removes a feature by index", () => removeFeatureByIndexTest());
 });
