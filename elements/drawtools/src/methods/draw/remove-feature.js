@@ -22,6 +22,5 @@ export function removeFeatureByIndexMethod(EoxDrawTool, index) {
     const newFeatures = [...EoxDrawTool.drawnFeatures];
     newFeatures.splice(index, 1);
     EoxDrawTool.drawnFeatures = newFeatures;
-    EoxDrawTool.emitDrawnFeatures();
   }
 }

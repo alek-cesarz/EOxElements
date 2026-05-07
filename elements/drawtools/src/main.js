@@ -4,6 +4,7 @@ import "./components/controller";
 import { styleEOX } from "./style.eox";
 import {
   startDrawingMethod,
+  stopDrawingMethod,
   initLayerMethod,
   discardDrawingMethod,
   emitDrawnFeaturesMethod,
@@ -41,14 +42,20 @@ import {
  * ## Methods
  *
  * - `startDrawing`: Triggers starting the drawing interaction on the map.
+ * - `stopDrawing`: Stops the active drawing interaction without discarding existing features.
  * - `discardDrawing`: Triggers discarding/stopping the drawing interaction and deleting the drawn shapes.
  * - `removeFeature`: Removes a feature from the drawn features.
  * - `removeFeatureByIndex`: Removes a feature from the drawn features by its index.
  *
  * Usage: `document.querySelector("eox-drawtools").startDrawing();`
  *
+ * Programmatic mutations of `drawnFeatures` (assigning the property, or calling
+ * `removeFeature` / `removeFeatureByIndex`) do NOT emit a `drawupdate` event —
+ * the caller initiated the change, so a callback would be a feedback loop.
+ * `drawupdate` only fires for user-initiated draw, modify, and discard actions.
+ *
  * @element eox-drawtools
- * @fires {CustomEvent} drawupdate - Fires whenever features are added, modified or discarded
+ * @fires {CustomEvent} drawupdate - Fires whenever the user adds, modifies or discards features
  */
 export class EOxDrawTools extends LitElement {
   // Define properties with defaults and types
@@ -102,6 +109,14 @@ export class EOxDrawTools extends LitElement {
    * @type boolean
    */
   #internalUpdate = false;
+
+  /**
+   * Flag set during programmatic mutations of the draw layer source.
+   * When true, `emitDrawnFeatures()` is a no-op so callers don't get
+   * a `drawupdate` echo of changes they initiated themselves.
+   * @type boolean
+   */
+  #programmaticUpdate = false;
 
   /**
    * @type boolean
@@ -281,25 +296,30 @@ export class EOxDrawTools extends LitElement {
     const oldValue = this.#drawnFeatures;
     this.#drawnFeatures = features;
     if (this.drawLayer && !this.#internalUpdate) {
-      this.drawLayer.getSource().clear();
-      if (features?.length) {
-        const source = this.eoxMap?.projection || "EPSG:3857";
-        const destination = this.projection || "EPSG:4326";
+      this.#programmaticUpdate = true;
+      try {
+        this.drawLayer.getSource().clear();
+        if (features?.length) {
+          const source = this.eoxMap?.projection || "EPSG:3857";
+          const destination = this.projection || "EPSG:4326";
 
-        let featuresToAdd = features;
-        if (source && destination && source !== destination) {
-          featuresToAdd = features.map((feat) => {
-            feat = feat.clone();
-            const transformed = feat
-              .getGeometry()
-              .transform(destination, source);
-            feat.setGeometry(transformed);
-            return feat;
-          });
+          let featuresToAdd = features;
+          if (source && destination && source !== destination) {
+            featuresToAdd = features.map((feat) => {
+              feat = feat.clone();
+              const transformed = feat
+                .getGeometry()
+                .transform(destination, source);
+              feat.setGeometry(transformed);
+              return feat;
+            });
+          }
+          this.drawLayer.getSource().addFeatures(featuresToAdd);
         }
-        this.drawLayer.getSource().addFeatures(featuresToAdd);
+        this.updateGeoJSON();
+      } finally {
+        this.#programmaticUpdate = false;
       }
-      this.updateGeoJSON();
     }
     this.requestUpdate("drawnFeatures", oldValue);
   }
@@ -326,6 +346,15 @@ export class EOxDrawTools extends LitElement {
    */
   startDrawing() {
     startDrawingMethod(this);
+  }
+
+  /**
+   * Stops the active drawing interaction without discarding existing features.
+   * Complements `startDrawing()` / `discardDrawing()`: use this when you want
+   * to leave the user's already-drawn features intact but exit drawing mode.
+   */
+  stopDrawing() {
+    stopDrawingMethod(this);
   }
 
   /**
@@ -397,9 +426,13 @@ export class EOxDrawTools extends LitElement {
 
   /**
    * Triggers different events when the drawing of a shape is completed.
+   * Skipped while a programmatic mutation of the draw layer is in progress
+   * (see `#programmaticUpdate`) so callers don't receive a `drawupdate`
+   * echo of changes they initiated themselves.
    * @ignore
    */
   emitDrawnFeatures() {
+    if (this.#programmaticUpdate) return;
     /**
      * @param {import("./methods/draw/emit-drawn-features").EmitFormat} value
      */

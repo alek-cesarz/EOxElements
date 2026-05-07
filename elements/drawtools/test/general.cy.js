@@ -14,6 +14,8 @@ import {
   drawUpdateEventTest,
   abortDrawingWithEscapeTest,
   removeFeatureTest,
+  stopDrawingTest,
+  programmaticNoEmitTest,
 } from "./cases";
 
 import { TEST_SELECTORS } from "../src/enums";
@@ -69,4 +71,11 @@ describe("Drawtools", () => {
 
   // Test case to ensure features can be removed programmatically
   it("removes features programmatically", () => removeFeatureTest());
+
+  // Test case to ensure stopDrawing() deactivates drawing without clearing features
+  it("stops drawing without clearing features", () => stopDrawingTest());
+
+  // Test case to ensure programmatic mutations do not emit drawupdate
+  it("does not emit drawupdate for programmatic mutations", () =>
+    programmaticNoEmitTest());
 });
